@@ -7,4 +7,6 @@ https://roadmap.sh/projects/task-tracker
 1. add multiple items at once
 1. delete multiple items at once
 1. change status for multiple items at once
+1. implement 'help' command
+1. ?introduce command aliases
 1. tests
