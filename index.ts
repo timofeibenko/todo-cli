@@ -1,5 +1,5 @@
-import { exit } from 'process';
-import * as fs from 'node:fs';
+import { exit } from 'process'
+import * as fs from 'node:fs'
 
 enum TaskStatus {
 		TODO = 'todo',
@@ -17,6 +17,71 @@ type Task = {
 
 type TaskStorage = { tasks: Task[] | null }
 
+enum Commands {
+		HELP = 'help',
+		ADD = 'add',
+		UPDATE = 'update',
+		DELETE = 'delete',
+		LIST = 'list',
+		MARK_TODO = 'mark-todo',
+		MARK_IN_PROGRESS = 'mark-in-progress',
+		MARK_DONE = 'mark-done',
+}
+
+const COMMANDS_TO_LIST = [
+		{
+				name: Commands.HELP,
+				params: '',
+				description: 'Lists the list of available commands',
+		},
+		{
+				name: Commands.LIST,
+				params: '',
+				description: 'Lists all tasks. If status parameter is provided',
+		},
+		{
+				name: Commands.LIST,
+				params: '?<status>',
+				description: `List only the tasks in that status. Possible status values are ${Object.values(TaskStatus).join(', ')}`,
+		},
+		{
+				name: Commands.ADD,
+				params: '<task-description>',
+				description: 'Adds a task',
+		},
+		{
+				name: Commands.UPDATE,
+				params: '<task-id> <task-description>',
+				description: 'Updates task description',
+		},
+		{
+				name: Commands.DELETE,
+				params: '<task-id>',
+				description: 'Deletes a task',
+		},
+		{
+				name: Commands.MARK_TODO,
+				params: '<task-id>',
+				description: 'Marks a task as todo',
+		},
+		{
+				name: Commands.MARK_IN_PROGRESS,
+				params: '<task-id>',
+				description: 'Marks a task as in-progress',
+		},
+		{
+				name: Commands.MARK_DONE,
+				params: '<task-id>',
+				description: 'Marks a task as done',
+		},
+]
+const longestCommandLength = COMMANDS_TO_LIST
+				.reduce((a, b) => a.name.length > b.name.length ? a : b).name.length
+
+const longestParamsLength = COMMANDS_TO_LIST
+				.reduce((a, b) => a.params.length > b.params.length ? a : b)
+				.params
+				.length
 
 if (!fs.existsSync('./tasks.json')) {
 		fs.writeFileSync('./tasks.json', JSON.stringify({ tasks: null }, null, 2))
@@ -24,6 +89,23 @@ if (!fs.existsSync('./tasks.json')) {
 
 const file = fs.readFileSync('./tasks.json', 'utf-8')
 const fileObj: TaskStorage = JSON.parse(file)
+
+function log_help() {
+		console.info('ToDo CLI.\n\nUsage:')
+
+		console.group()
+		COMMANDS_TO_LIST.forEach(({ name, params, description}) => {
+				console.info(
+						name.padEnd(longestCommandLength)
+						+ '      '
+						+ params.padEnd(longestParamsLength)
+						+ '      '
+						+ description
+				)
+
+		})
+		console.groupEnd()
+}
 
 function check_if_task_exists(id: Task['id']) {
 		if (!fileObj.tasks) {
@@ -165,71 +247,42 @@ function change_status(id: number, status: TaskStatus) {
 		write_to_json(updatedTasks)
 }
 
-function log_help() {
-		console.info('Usage:\n')
-
-		console.info('add <task-description>')
-		console.info(`Adds a task\n`)
-
-		console.info('update <task-id> <task-description>')
-		console.info(`Updates task description\n`)
-
-		console.info('list <?status>')
-		console.info('Lists all tasks. If status parameter is provided, list only the tasks in that status.')
-		console.info(`Possible status values are ${Object.values(TaskStatus).join(', ')}\n`)
-
-		console.info('delete <task-id>')
-		console.info(`Deletes a task\n`)
-
-		console.info('mark-todo <task-id>')
-		console.info(`Changes task status to todo\n`)
-
-		console.info('mark-in-progress <task-id>')
-		console.info(`Changes task status to in-progress\n`)
-
-		console.info('mark-done <task-id>')
-		console.info(`Changes task status to done\n`)
-
-		console.info(`help`)
-		console.info(`Lists the list of available commands`)
-}
-
 for (let i = 2; i < process.argv.length; i++) {
 		const arg = process.argv[i]
 		const param1 = process.argv[i + 1]
 		const param2 = process.argv[i + 2]
 
 		switch (arg) {
-				case 'add':
+				case Commands.ADD:
 						if (!param1) {
-								log_cli_error('ADD', 'Task description was not provided')
+								log_cli_error(Commands.ADD, 'Task description was not provided')
 								exit(1)
 						}
 
 						add_task(param1)
 						exit(1)
 
-				case 'update':
-						run_id_expection('UPDATE', param1)
+				case Commands.UPDATE:
+						run_id_expection(Commands.UPDATE, param1)
 
 						if (!param2) {
-								log_cli_error('UPDATE', 'Task description was not provided')
+								log_cli_error(Commands.UPDATE, 'Task description was not provided')
 								exit(1)
 						}
 
 						update_task(+param1, param2)
 						exit(1)
-				case 'delete':
-						run_id_expection('UPDATE', param1)
+				case Commands.DELETE:
+						run_id_expection(Commands.UPDATE, param1)
 						delete_task(+param1)
 						exit(1)
 
-				case 'list':
+				case Commands.LIST:
 						if (param1) {
 								if (Object.values(TaskStatus).includes(param1 as TaskStatus)) {
 										list_tasks(param1 as TaskStatus)
 								} else {
-										log_cli_error('LIST', `Task status format is incorrect, possible values are: ${Object.values(TaskStatus).join(', ')}`)
+										log_cli_error(Commands.LIST, `Task status format is incorrect, possible values are: ${Object.values(TaskStatus).join(', ')}`)
 								}
 						} else {
 								list_tasks()
@@ -237,22 +290,22 @@ for (let i = 2; i < process.argv.length; i++) {
 
 						exit(1)
 
-				case 'mark-todo':
-				case 'mark-in-progress':
-				case 'mark-done':
+				case Commands.MARK_TODO:
+				case Commands.MARK_IN_PROGRESS:
+				case Commands.MARK_DONE:
 						run_id_expection(arg.toUpperCase(), param1)
 
-						let status: TaskStatus | null = null;
+						let status: TaskStatus | null = null
 
-						if (arg === 'mark-todo') {
+						if (arg === Commands.MARK_TODO) {
 								status = TaskStatus.TODO
 						}
 
-						if (arg === 'mark-in-progress') {
+						if (arg === Commands.MARK_IN_PROGRESS) {
 								status = TaskStatus.IN_PROGRESS
 						}
 
-						if (arg === 'mark-done') {
+						if (arg === Commands.MARK_DONE) {
 								status = TaskStatus.DONE
 						}
 
@@ -263,7 +316,7 @@ for (let i = 2; i < process.argv.length; i++) {
 						change_status(+param1, status)
 						exit(1)
 
-				case 'help':
+				case Commands.HELP:
 						log_help()
 						exit(1)
 
